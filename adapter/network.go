@@ -33,6 +33,7 @@ type NetworkManager interface {
 
 type NetworkOptions struct {
 	BindInterface        string
+	BindIPv6Interface    string
 	RoutingMark          uint32
 	DomainResolver       string
 	DomainResolveOptions DNSQueryOptions
