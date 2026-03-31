@@ -14,6 +14,7 @@ type RouteOptions struct {
 	AutoDetectInterface        bool                              `json:"auto_detect_interface,omitempty"`
 	OverrideAndroidVPN         bool                              `json:"override_android_vpn,omitempty"`
 	DefaultInterface           string                            `json:"default_interface,omitempty"`
+	DefaultIPv6BindInterface   string                            `json:"default_ipv6_bind_interface,omitempty"`
 	DefaultMark                FwMark                            `json:"default_mark,omitempty"`
 	DefaultDomainResolver      *DomainResolveOptions             `json:"default_domain_resolver,omitempty"`
 	DefaultNetworkStrategy     *NetworkStrategy                  `json:"default_network_strategy,omitempty"`

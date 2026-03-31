@@ -66,6 +66,8 @@ func NewNetworkManager(ctx context.Context, logger logger.ContextLogger, options
 		return nil, E.New("`override_android_vpn` is only supported on Android")
 	} else if options.DefaultInterface != "" && !(C.IsLinux || C.IsDarwin || C.IsWindows) {
 		return nil, E.New("`default_interface` is only supported on Linux, Windows and macOS")
+	} else if options.DefaultIPv6BindInterface != "" && !(C.IsLinux || C.IsDarwin || C.IsWindows) {
+		return nil, E.New("`default_ipv6_bind_interface` is only supported on Linux, Windows and macOS")
 	} else if options.DefaultMark != 0 && !C.IsLinux {
 		return nil, E.New("`default_mark` is only supported on linux")
 	}
@@ -74,9 +76,10 @@ func NewNetworkManager(ctx context.Context, logger logger.ContextLogger, options
 		interfaceFinder:     control.NewDefaultInterfaceFinder(),
 		autoDetectInterface: options.AutoDetectInterface,
 		defaultOptions: adapter.NetworkOptions{
-			BindInterface:  options.DefaultInterface,
-			RoutingMark:    uint32(options.DefaultMark),
-			DomainResolver: defaultDomainResolver.Server,
+			BindInterface:     options.DefaultInterface,
+			BindIPv6Interface: options.DefaultIPv6BindInterface,
+			RoutingMark:       uint32(options.DefaultMark),
+			DomainResolver:    defaultDomainResolver.Server,
 			DomainResolveOptions: adapter.DNSQueryOptions{
 				Strategy:               C.DomainStrategy(defaultDomainResolver.Strategy),
 				DisableCache:           defaultDomainResolver.DisableCache,
