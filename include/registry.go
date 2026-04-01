@@ -80,6 +80,7 @@ func OutboundRegistry() *outbound.Registry {
 	block.RegisterOutbound(registry)
 
 	group.RegisterSelector(registry)
+	group.RegisterAutoSelector(registry)
 	group.RegisterURLTest(registry)
 
 	socks.RegisterOutbound(registry)

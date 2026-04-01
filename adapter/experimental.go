@@ -139,6 +139,11 @@ type OutboundGroup interface {
 	All() []string
 }
 
+type SelectableOutboundGroup interface {
+	OutboundGroup
+	SelectOutbound(tag string) bool
+}
+
 type URLTestGroup interface {
 	OutboundGroup
 	URLTest(ctx context.Context) (map[string]uint16, error)

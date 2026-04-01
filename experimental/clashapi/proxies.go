@@ -168,10 +168,10 @@ func updateProxy(w http.ResponseWriter, r *http.Request) {
 	}
 
 	proxy := r.Context().Value(CtxKeyProxy).(adapter.Outbound)
-	selector, ok := proxy.(*group.Selector)
+	selector, ok := proxy.(adapter.SelectableOutboundGroup)
 	if !ok {
 		render.Status(r, http.StatusBadRequest)
-		render.JSON(w, r, newError("Must be a Selector"))
+		render.JSON(w, r, newError("Must be a selectable group"))
 		return
 	}
 
