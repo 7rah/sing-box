@@ -86,11 +86,23 @@ type V2RayWebsocketOptions struct {
 type V2RayQUICOptions struct{}
 
 type V2RayGRPCOptions struct {
-	ServiceName         string             `json:"service_name,omitempty"`
-	IdleTimeout         badoption.Duration `json:"idle_timeout,omitempty"`
-	PingTimeout         badoption.Duration `json:"ping_timeout,omitempty"`
-	PermitWithoutStream bool               `json:"permit_without_stream,omitempty"`
-	ForceLite           bool               `json:"-"` // for test
+	ServiceName         string                `json:"service_name,omitempty"`
+	IdleTimeout         badoption.Duration    `json:"idle_timeout,omitempty"`
+	PingTimeout         badoption.Duration    `json:"ping_timeout,omitempty"`
+	PermitWithoutStream bool                  `json:"permit_without_stream,omitempty"`
+	Pool                *V2RayGRPCPoolOptions `json:"pool,omitempty"`
+	ForceLite           bool                  `json:"-"` // for test
+}
+
+type V2RayGRPCPoolOptions struct {
+	Enabled        bool               `json:"enabled,omitempty"`
+	MaxConnections int                `json:"max_connections,omitempty"` // optional hard cap; 0 = unlimited
+	MaxStreams     int                `json:"max_streams,omitempty"`     // per-connection concurrent streams
+	MaxConnecting  int                `json:"max_connecting,omitempty"`  // concurrent dials
+	MaxReuse       int                `json:"max_reuse,omitempty"`       // streams per connection lifetime
+	MaxAge         badoption.Duration `json:"max_age,omitempty"`         // connection max age
+	WaitTimeout    badoption.Duration `json:"wait_timeout,omitempty"`    // acquire timeout
+	MinConnections int                `json:"min_connections,omitempty"` // only enforced when demand=true
 }
 
 type V2RayHTTPUpgradeOptions struct {
