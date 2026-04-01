@@ -159,7 +159,17 @@ It needs to be consistent with the server.
   "service_name": "TunService",
   "idle_timeout": "15s",
   "ping_timeout": "15s",
-  "permit_without_stream": false
+  "permit_without_stream": false,
+  "pool": {
+    "enabled": false,
+    "max_connections": 0,
+    "min_connections": 0,
+    "max_connecting": 0,
+    "max_streams": 0,
+    "max_reuse": 0,
+    "max_age": "0s",
+    "wait_timeout": "0s"
+  }
 }
 ```
 
@@ -198,6 +208,21 @@ If disabled, when there are no active connections, `idle_timeout` and `ping_time
 pings will be sent.
 
 Disabled by default.
+
+#### pool
+
+gRPC connection pool options for default gRPC (`v2raygrpclite`) client.
+
+Enabled only when `pool.enabled` is set to `true`.
+
+- `pool.enabled`: Enable pool.
+- `pool.max_connections`: Optional hard cap; `0` means unlimited.
+- `pool.min_connections`: Only enforced when demand is enabled; allows keeping a baseline number of connections.
+- `pool.max_connecting`: Maximum concurrent dials.
+- `pool.max_streams`: Maximum concurrent streams per connection.
+- `pool.max_reuse`: Maximum streams per connection lifetime; `0` means unlimited.
+- `pool.max_age`: Maximum connection age; `0s` means unlimited.
+- `pool.wait_timeout`: Timeout waiting to acquire a connection from the pool.
 
 ### HTTPUpgrade
 

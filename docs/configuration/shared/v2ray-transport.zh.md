@@ -152,7 +152,17 @@ HTTP 请求的额外标头
   "service_name": "TunService",
   "idle_timeout": "15s",
   "ping_timeout": "15s",
-  "permit_without_stream": false
+  "permit_without_stream": false,
+  "pool": {
+    "enabled": false,
+    "max_connections": 0,
+    "min_connections": 0,
+    "max_connecting": 0,
+    "max_streams": 0,
+    "max_reuse": 0,
+    "max_age": "0s",
+    "wait_timeout": "0s"
+  }
 }
 ```
 
@@ -187,6 +197,21 @@ gRPC 服务名称。
 如果启用，客户端传输即使没有活动连接也会发送 keepalive ping。如果禁用，则在没有活动连接时，将忽略 `idle_timeout` 和 `ping_timeout`，并且不会发送 keepalive ping。
 
 默认禁用。
+
+#### pool
+
+默认 gRPC (`v2raygrpclite`) 客户端的连接池选项。
+
+仅当 `pool.enabled` 为 `true` 时启用。
+
+- `pool.enabled`: 启用连接池。
+- `pool.max_connections`: 可选硬上限；`0` 表示不限制。
+- `pool.min_connections`: 仅在 demand 模式启用时生效；用于维持最小连接数。
+- `pool.max_connecting`: 最大并发拨号数。
+- `pool.max_streams`: 单连接最大并发 stream 数。
+- `pool.max_reuse`: 单连接生命周期最大 stream 数；`0` 表示不限制。
+- `pool.max_age`: 最大连接年龄；`0s` 表示不限制。
+- `pool.wait_timeout`: 等待从连接池获取连接的超时时间。
 
 ### HTTPUpgrade
 
