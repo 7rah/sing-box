@@ -8,6 +8,13 @@ type SelectorOutboundOptions struct {
 	InterruptExistConnections bool     `json:"interrupt_exist_connections,omitempty"`
 }
 
+type AutoSelectorOutboundOptions struct {
+	Match                     string `json:"match,omitempty"`
+	Fallback                  string `json:"fallback,omitempty"`
+	WatchInterface            string `json:"watch_interface,omitempty"`
+	InterruptExistConnections bool   `json:"interrupt_exist_connections,omitempty"`
+}
+
 type URLTestOutboundOptions struct {
 	Outbounds                 []string           `json:"outbounds"`
 	URL                       string             `json:"url,omitempty"`
