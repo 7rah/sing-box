@@ -26,11 +26,14 @@ type adaptiveTimer struct {
 	maxInterval       time.Duration
 	checksBeforeLimit int
 	useAvailable      bool
+	onTriggered       func()
+	onRecovered       func()
 
-	access        sync.Mutex
-	timer         *time.Timer
-	previousUsage uint64
-	lastInterval  time.Duration
+	access              sync.Mutex
+	timer               *time.Timer
+	previousUsage       uint64
+	lastInterval        time.Duration
+	previouslyTriggered bool
 }
 
 type timerConfig struct {
@@ -42,7 +45,7 @@ type timerConfig struct {
 	useAvailable      bool
 }
 
-func newAdaptiveTimer(logger log.ContextLogger, router adapter.Router, config timerConfig) *adaptiveTimer {
+func newAdaptiveTimer(logger log.ContextLogger, router adapter.Router, config timerConfig, onTriggered func(), onRecovered func()) *adaptiveTimer {
 	return &adaptiveTimer{
 		logger:            logger,
 		router:            router,
@@ -52,6 +55,8 @@ func newAdaptiveTimer(logger log.ContextLogger, router adapter.Router, config ti
 		maxInterval:       config.maxInterval,
 		checksBeforeLimit: config.checksBeforeLimit,
 		useAvailable:      config.useAvailable,
+		onTriggered:       onTriggered,
+		onRecovered:       onRecovered,
 	}
 }
 
@@ -130,9 +135,20 @@ func (t *adaptiveTimer) poll() {
 	}
 
 	if triggered {
+		if !t.previouslyTriggered {
+			t.previouslyTriggered = true
+			if t.onTriggered != nil {
+				t.onTriggered()
+			}
+		}
 		t.logger.Error("memory threshold reached, usage: ", usage/(1024*1024), " MiB, resetting network")
 		t.router.ResetNetwork()
 		runtimeDebug.FreeOSMemory()
+	} else if t.previouslyTriggered {
+		t.previouslyTriggered = false
+		if t.onRecovered != nil {
+			t.onRecovered()
+		}
 	}
 
 	var interval time.Duration
