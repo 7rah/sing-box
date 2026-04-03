@@ -4,6 +4,7 @@ package oomkiller
 
 import (
 	"context"
+	"sync/atomic"
 
 	"github.com/sagernet/sing-box/adapter"
 	boxService "github.com/sagernet/sing-box/adapter/service"
@@ -21,18 +22,21 @@ func RegisterService(registry *boxService.Registry) {
 
 type Service struct {
 	boxService.Adapter
-	logger        log.ContextLogger
-	router        adapter.Router
-	adaptiveTimer *adaptiveTimer
-	timerConfig   timerConfig
-	hasTimerMode  bool
-	useAvailable  bool
-	memoryLimit   uint64
+	ctx              context.Context
+	logger           log.ContextLogger
+	router           adapter.Router
+	adaptiveTimer    *adaptiveTimer
+	timerConfig      timerConfig
+	hasTimerMode     bool
+	useAvailable     bool
+	memoryLimit      uint64
+	criticalReported atomic.Bool
 }
 
 func NewService(ctx context.Context, logger log.ContextLogger, tag string, options option.OOMKillerServiceOptions) (adapter.Service, error) {
 	s := &Service{
 		Adapter: boxService.NewAdapter(boxConstant.TypeOOMKiller, tag),
+		ctx:     ctx,
 		logger:  logger,
 		router:  service.FromContext[adapter.Router](ctx),
 	}
@@ -63,7 +67,10 @@ func (s *Service) Start(stage adapter.StartStage) error {
 	if !s.hasTimerMode {
 		return E.New("memory pressure monitoring is not available on this platform without memory_limit")
 	}
-	s.adaptiveTimer = newAdaptiveTimer(s.logger, s.router, s.timerConfig)
+	s.adaptiveTimer = newAdaptiveTimer(s.logger, s.router, s.timerConfig,
+		func() { s.writeOOMReport(memory.Total()) },
+		func() { s.criticalReported.Store(false) },
+	)
 	s.adaptiveTimer.start(0)
 	if s.useAvailable {
 		s.logger.Info("started memory monitor with available memory detection")
@@ -71,6 +78,22 @@ func (s *Service) Start(stage adapter.StartStage) error {
 		s.logger.Info("started memory monitor with limit: ", s.memoryLimit/(1024*1024), " MiB")
 	}
 	return nil
+}
+
+func (s *Service) writeOOMReport(memoryUsage uint64) {
+	if !s.criticalReported.CompareAndSwap(false, true) {
+		return
+	}
+	reporter := service.FromContext[OOMReporter](s.ctx)
+	if reporter == nil {
+		return
+	}
+	err := reporter.WriteReport(memoryUsage)
+	if err != nil {
+		s.logger.Warn("failed to write OOM report: ", err)
+	} else {
+		s.logger.Info("OOM report saved")
+	}
 }
 
 func (s *Service) Close() error {

@@ -14,6 +14,7 @@ import (
 	"github.com/sagernet/sing-box/experimental/deprecated"
 	"github.com/sagernet/sing-box/log"
 	"github.com/sagernet/sing-box/protocol/group"
+	"github.com/sagernet/sing-box/service/oomkiller"
 	"github.com/sagernet/sing/common"
 	"github.com/sagernet/sing/common/batch"
 	E "github.com/sagernet/sing/common/exceptions"
@@ -708,6 +709,21 @@ func (s *StartedService) TriggerDebugCrash(ctx context.Context, request *DebugCr
 		return nil, status.Error(codes.InvalidArgument, "unknown debug crash type")
 	}
 	return &emptypb.Empty{}, nil
+}
+
+func (s *StartedService) TriggerOOMReport(ctx context.Context, _ *emptypb.Empty) (*emptypb.Empty, error) {
+	if !s.debug {
+		return nil, status.Error(codes.PermissionDenied, "OOM report trigger unavailable")
+	}
+	instance := s.Instance()
+	if instance == nil {
+		return nil, status.Error(codes.FailedPrecondition, "service not started")
+	}
+	reporter := service.FromContext[oomkiller.OOMReporter](instance.Context())
+	if reporter == nil {
+		return nil, status.Error(codes.Unavailable, "OOM reporter not available")
+	}
+	return &emptypb.Empty{}, reporter.WriteReport(memory.Total())
 }
 
 func (s *StartedService) SubscribeConnections(request *SubscribeConnectionsRequest, server grpc.ServerStreamingServer[ConnectionEvents]) error {
