@@ -40,7 +40,7 @@ type Client struct {
 	host       string
 }
 
-func NewClient(ctx context.Context, dialer N.Dialer, serverAddr M.Socksaddr, options option.V2RayGRPCOptions, tlsConfig tls.Config) adapter.V2RayClientTransport {
+func NewClient(ctx context.Context, dialer N.Dialer, serverAddr M.Socksaddr, options option.V2RayGRPCOptions, tlsConfig tls.Config) (adapter.V2RayClientTransport, error) {
 	var host string
 	if tlsConfig != nil && tlsConfig.ServerName() != "" {
 		host = M.ParseSocksaddrHostPort(tlsConfig.ServerName(), serverAddr.Port).String()
@@ -85,7 +85,7 @@ func NewClient(ctx context.Context, dialer N.Dialer, serverAddr M.Socksaddr, opt
 	setupDial(client.transport)
 
 	if options.Pool == nil || !options.Pool.Enabled || options.ForceLite {
-		return client
+		return client, nil
 	}
 
 	poolTransport := &http2.Transport{
@@ -96,13 +96,16 @@ func NewClient(ctx context.Context, dialer N.Dialer, serverAddr M.Socksaddr, opt
 	setupDial(poolTransport)
 
 	cfg := poolConfig{ //nolint:exhaustruct
-		maxConnections: options.Pool.MaxConnections,
-		maxStreams:     options.Pool.MaxStreams,
-		maxConnecting:  options.Pool.MaxConnecting,
-		maxReuse:       options.Pool.MaxReuse,
-		maxAge:         time.Duration(options.Pool.MaxAge),
-		waitTimeout:    time.Duration(options.Pool.WaitTimeout),
-		minConnections: options.Pool.MinConnections,
+		maxConnections:     options.Pool.MaxConnections,
+		maxStreams:         options.Pool.MaxStreams,
+		maxConnecting:      options.Pool.MaxConnecting,
+		maxReuse:           options.Pool.MaxReuse,
+		maxAge:             time.Duration(options.Pool.MaxAge),
+		waitTimeout:        time.Duration(options.Pool.WaitTimeout),
+		minConnections:     options.Pool.MinConnections,
+		failureBackoff:     time.Duration(options.Pool.FailureBackoff),
+		maxFailureBackoff:  time.Duration(options.Pool.MaxFailureBackoff),
+		restoreStableAfter: time.Duration(options.Pool.RestoreStableAfter),
 	}
 	if cfg.maxStreams == 0 {
 		cfg.maxStreams = 16
@@ -112,6 +115,24 @@ func NewClient(ctx context.Context, dialer N.Dialer, serverAddr M.Socksaddr, opt
 	}
 	if cfg.waitTimeout == 0 {
 		cfg.waitTimeout = 5 * time.Second
+	}
+	if cfg.failureBackoff == 0 {
+		cfg.failureBackoff = time.Second
+	}
+	if cfg.maxFailureBackoff == 0 {
+		cfg.maxFailureBackoff = 16 * time.Second
+	}
+	if cfg.restoreStableAfter == 0 {
+		cfg.restoreStableAfter = 3 * time.Minute
+	}
+	if cfg.failureBackoff < 0 {
+		return nil, E.New("v2ray-grpc: pool.failure_backoff must be positive")
+	}
+	if cfg.maxFailureBackoff < cfg.failureBackoff {
+		return nil, E.New("v2ray-grpc: pool.max_failure_backoff must be greater than or equal to failure_backoff")
+	}
+	if cfg.restoreStableAfter < 0 {
+		return nil, E.New("v2ray-grpc: pool.restore_stable_after must be positive")
 	}
 
 	factory := func(ctx context.Context) (clientConn, error) {
@@ -137,7 +158,7 @@ func NewClient(ctx context.Context, dialer N.Dialer, serverAddr M.Socksaddr, opt
 		makePool: makePool,
 		url:      client.url,
 		host:     client.host,
-	}
+	}, nil
 }
 
 func (c *Client) DialContext(ctx context.Context) (net.Conn, error) {
@@ -194,6 +215,14 @@ type pooledGunConn struct {
 
 func newPooledGunConn(writer io.Writer) *pooledGunConn {
 	return &pooledGunConn{GunConn: newLateGunConn(writer)} //nolint:exhaustruct
+}
+
+func (c *pooledGunConn) track(clientConn clientConn) {
+	c.GunConn.track(clientConn)
+}
+
+func (c *pooledGunConn) markBroken(err error) {
+	c.GunConn.markBroken(err)
 }
 
 func (c *pooledGunConn) setRelease(release func()) {
@@ -288,10 +317,12 @@ func (c *pooledClient) DialContext(ctx context.Context) (net.Conn, error) {
 		} else if response.StatusCode != 200 {
 			response.Body.Close()
 			err = E.New("v2ray-grpc: unexpected status: ", response.Status)
+			conn.markBroken(err)
 			_ = pipeInWriter.CloseWithError(err)
 			conn.setup(nil, err)
 			conn.doRelease()
 		} else {
+			conn.track(clientConn)
 			conn.setup(response.Body, nil)
 		}
 	}()

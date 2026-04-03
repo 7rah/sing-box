@@ -168,7 +168,10 @@ It needs to be consistent with the server.
     "max_streams": 0,
     "max_reuse": 0,
     "max_age": "0s",
-    "wait_timeout": "0s"
+    "wait_timeout": "0s",
+    "failure_backoff": "1s",
+    "max_failure_backoff": "16s",
+    "restore_stable_after": "3m"
   }
 }
 ```
@@ -223,6 +226,13 @@ Enabled only when `pool.enabled` is set to `true`.
 - `pool.max_reuse`: Maximum streams per connection lifetime; `0` means unlimited.
 - `pool.max_age`: Maximum connection age; `0s` means unlimited.
 - `pool.wait_timeout`: Timeout waiting to acquire a connection from the pool.
+- `pool.failure_backoff`: Initial reconnect cooldown after a dial failure or unhealthy pooled connection.
+- `pool.max_failure_backoff`: Maximum reconnect cooldown after repeated failures.
+- `pool.restore_stable_after`: Stable time required before the pool leaves half-open mode and restores normal multi-connection behavior.
+
+When a pooled connection becomes unhealthy, the pool enters a reconnect cooldown and new acquire requests fail immediately if no healthy connection is currently available.
+After the cooldown expires, the pool enters a half-open mode that keeps at most one physical connection alive.
+Only after `restore_stable_after` has passed without another dial failure or broken connection will the pool restore normal pooling behavior.
 
 ### HTTPUpgrade
 

@@ -13,6 +13,7 @@ import (
 	"github.com/sagernet/sing/common"
 	"github.com/sagernet/sing/common/baderror"
 	"github.com/sagernet/sing/common/buf"
+	E "github.com/sagernet/sing/common/exceptions"
 	M "github.com/sagernet/sing/common/metadata"
 	"github.com/sagernet/sing/common/varbin"
 )
@@ -20,6 +21,14 @@ import (
 // kanged from: https://github.com/Qv2ray/gun-lite
 
 var _ net.Conn = (*GunConn)(nil)
+
+func shouldMarkRoundTripBroken(err error) bool {
+	return err != nil && !E.IsCanceled(err)
+}
+
+func shouldMarkStreamBroken(err error) bool {
+	return err != nil && !E.IsClosedOrCanceled(err)
+}
 
 type GunConn struct {
 	rawReader     io.Reader
@@ -30,6 +39,7 @@ type GunConn struct {
 	err           error
 	readRemaining int
 	cancel        context.CancelFunc
+	lease         *leaseConn
 }
 
 func newGunConn(reader io.Reader, writer io.Writer, flusher http.Flusher) *GunConn {
@@ -50,6 +60,18 @@ func newLateGunConn(writer io.Writer) *GunConn {
 
 func (c *GunConn) setCancel(cancel context.CancelFunc) {
 	c.cancel = cancel
+}
+
+func (c *GunConn) track(clientConn clientConn) {
+	if lease, isLease := clientConn.(*leaseConn); isLease {
+		c.lease = lease
+	}
+}
+
+func (c *GunConn) markBroken(err error) {
+	if c.lease != nil && shouldMarkStreamBroken(err) {
+		c.lease.markBroken(err)
+	}
 }
 
 func (c *GunConn) setup(reader io.Reader, err error) {
@@ -78,7 +100,9 @@ func (c *GunConn) setup(reader io.Reader, err error) {
 
 func (c *GunConn) Read(b []byte) (n int, err error) {
 	n, err = c.read(b)
-	return n, baderror.WrapH2(err)
+	err = baderror.WrapH2(err)
+	c.markBroken(err)
+	return n, err
 }
 
 func (c *GunConn) read(b []byte) (n int, err error) {
@@ -130,7 +154,9 @@ func (c *GunConn) Write(b []byte) (n int, err error) {
 	common.Must1(buffer.Write(b))
 	_, err = c.writer.Write(buffer.Bytes())
 	if err != nil {
-		return 0, baderror.WrapH2(err)
+		err = baderror.WrapH2(err)
+		c.markBroken(err)
+		return 0, err
 	}
 	if c.flusher != nil {
 		c.flusher.Flush()
@@ -149,7 +175,9 @@ func (c *GunConn) WriteBuffer(buffer *buf.Buffer) error {
 	binary.PutUvarint(header[6:], uint64(dataLen))
 	err := common.Error(c.writer.Write(buffer.Bytes()))
 	if err != nil {
-		return baderror.WrapH2(err)
+		err = baderror.WrapH2(err)
+		c.markBroken(err)
+		return err
 	}
 	if c.flusher != nil {
 		c.flusher.Flush()

@@ -3,9 +3,14 @@ package v2raygrpclite
 import (
 	"context"
 	"net/url"
+	"strings"
 	"sync/atomic"
 	"testing"
 	"time"
+
+	"github.com/sagernet/sing-box/option"
+	"github.com/sagernet/sing/common/json/badoption"
+	M "github.com/sagernet/sing/common/metadata"
 )
 
 type canceledPool struct {
@@ -65,5 +70,22 @@ func TestPooledClientDialRecreatesPoolAfterClose(t *testing.T) {
 			t.Fatalf("expected makePool to be called")
 		case <-time.After(5 * time.Millisecond):
 		}
+	}
+}
+
+func TestNewClientRejectsInvalidPoolBackoffConfig(t *testing.T) {
+	_, err := NewClient(context.Background(), nil, M.ParseSocksaddrHostPort("example.com", 443), option.V2RayGRPCOptions{
+		ServiceName: "TunService",
+		Pool: &option.V2RayGRPCPoolOptions{
+			Enabled:           true,
+			FailureBackoff:    badoption.Duration(2 * time.Second),
+			MaxFailureBackoff: badoption.Duration(time.Second),
+		},
+	}, nil)
+	if err == nil {
+		t.Fatalf("expected invalid pool config error")
+	}
+	if !strings.Contains(err.Error(), "max_failure_backoff") {
+		t.Fatalf("unexpected error: %v", err)
 	}
 }

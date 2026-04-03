@@ -161,7 +161,10 @@ HTTP 请求的额外标头
     "max_streams": 0,
     "max_reuse": 0,
     "max_age": "0s",
-    "wait_timeout": "0s"
+    "wait_timeout": "0s",
+    "failure_backoff": "1s",
+    "max_failure_backoff": "16s",
+    "restore_stable_after": "3m"
   }
 }
 ```
@@ -212,6 +215,13 @@ gRPC 服务名称。
 - `pool.max_reuse`: 单连接生命周期最大 stream 数；`0` 表示不限制。
 - `pool.max_age`: 最大连接年龄；`0s` 表示不限制。
 - `pool.wait_timeout`: 等待从连接池获取连接的超时时间。
+- `pool.failure_backoff`: 拨号失败或池内连接变为不健康后，首次进入的重连冷却时间。
+- `pool.max_failure_backoff`: 连续失败时的最大重连冷却时间。
+- `pool.restore_stable_after`: 连接池离开半开状态并恢复正常多连接行为前，所需的稳定时长。
+
+当池内连接变为不健康时，连接池会进入重连冷却；如果当前没有可用健康连接，新的获取请求会立即失败。
+冷却结束后，连接池会进入半开状态，此时最多只保留 1 条物理连接。
+只有在 `restore_stable_after` 时间内没有再次发生拨号失败或连接损坏，连接池才会恢复正常的池化行为。
 
 ### HTTPUpgrade
 
