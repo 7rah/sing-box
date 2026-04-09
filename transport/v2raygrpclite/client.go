@@ -6,6 +6,8 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/sagernet/sing-box/adapter"
@@ -28,12 +30,14 @@ var defaultClientHeader = http.Header{
 }
 
 type Client struct {
-	ctx        context.Context
-	serverAddr M.Socksaddr
-	transport  *http2.Transport
-	options    option.V2RayGRPCOptions
-	url        *url.URL
-	host       string
+	ctx                context.Context
+	serverAddr         M.Socksaddr
+	transports         []*http2.Transport
+	options            option.V2RayGRPCOptions
+	url                *url.URL
+	host               string
+	pinnedDestinations map[string]struct{}
+	nextTransport      atomic.Uint32
 }
 
 func NewClient(ctx context.Context, dialer N.Dialer, serverAddr M.Socksaddr, options option.V2RayGRPCOptions, tlsConfig tls.Config) adapter.V2RayClientTransport {
@@ -43,15 +47,17 @@ func NewClient(ctx context.Context, dialer N.Dialer, serverAddr M.Socksaddr, opt
 	} else {
 		host = serverAddr.String()
 	}
+	var transportCount int
+	if options.Pool != nil && options.Pool.Enabled && options.Pool.Size > 0 {
+		transportCount = options.Pool.Size
+	} else {
+		transportCount = 1
+	}
 	client := &Client{
 		ctx:        ctx,
 		serverAddr: serverAddr,
 		options:    options,
-		transport: &http2.Transport{
-			ReadIdleTimeout:    time.Duration(options.IdleTimeout),
-			PingTimeout:        time.Duration(options.PingTimeout),
-			DisableCompression: true,
-		},
+		transports: make([]*http2.Transport, transportCount),
 		url: &url.URL{
 			Scheme:  "https",
 			Host:    serverAddr.String(),
@@ -60,8 +66,19 @@ func NewClient(ctx context.Context, dialer N.Dialer, serverAddr M.Socksaddr, opt
 		},
 		host: host,
 	}
+	if options.Pool != nil && len(options.Pool.PinnedDestinations) > 0 {
+		client.pinnedDestinations = make(map[string]struct{}, len(options.Pool.PinnedDestinations))
+		for _, destination := range options.Pool.PinnedDestinations {
+			destination = strings.TrimSpace(destination)
+			if destination == "" {
+				continue
+			}
+			client.pinnedDestinations[destination] = struct{}{}
+		}
+	}
+	var dialTLSContext func(context.Context, string, string, *tls.STDConfig) (net.Conn, error)
 	if tlsConfig == nil {
-		client.transport.DialTLSContext = func(ctx context.Context, network, addr string, cfg *tls.STDConfig) (net.Conn, error) {
+		dialTLSContext = func(ctx context.Context, network, addr string, cfg *tls.STDConfig) (net.Conn, error) {
 			return dialer.DialContext(ctx, network, M.ParseSocksaddr(addr))
 		}
 	} else {
@@ -69,12 +86,29 @@ func NewClient(ctx context.Context, dialer N.Dialer, serverAddr M.Socksaddr, opt
 			tlsConfig.SetNextProtos([]string{http2.NextProtoTLS})
 		}
 		tlsDialer := tls.NewDialer(dialer, tlsConfig)
-		client.transport.DialTLSContext = func(ctx context.Context, network, addr string, cfg *tls.STDConfig) (net.Conn, error) {
+		dialTLSContext = func(ctx context.Context, network, addr string, cfg *tls.STDConfig) (net.Conn, error) {
 			return tlsDialer.DialTLSContext(ctx, M.ParseSocksaddr(addr))
+		}
+	}
+	for i := range client.transports {
+		client.transports[i] = &http2.Transport{
+			ReadIdleTimeout:    time.Duration(options.IdleTimeout),
+			PingTimeout:        time.Duration(options.PingTimeout),
+			DisableCompression: true,
+			DialTLSContext:     dialTLSContext,
 		}
 	}
 
 	return client
+}
+
+func (c *Client) transportForContext(ctx context.Context) *http2.Transport {
+	if metadata := adapter.ContextFrom(ctx); metadata != nil && len(c.pinnedDestinations) > 0 {
+		if _, pinned := c.pinnedDestinations[metadata.Destination.String()]; pinned {
+			return c.transports[0]
+		}
+	}
+	return c.transports[int(c.nextTransport.Add(1)-1)%len(c.transports)]
 }
 
 func (c *Client) DialContext(ctx context.Context) (net.Conn, error) {
@@ -90,8 +124,9 @@ func (c *Client) DialContext(ctx context.Context) (net.Conn, error) {
 	request = request.WithContext(ctx)
 	conn := newLateGunConn(pipeInWriter)
 	conn.setCancel(cancel)
+	transport := c.transportForContext(ctx)
 	go func() {
-		response, err := c.transport.RoundTrip(request)
+		response, err := transport.RoundTrip(request)
 		if err != nil {
 			_ = pipeInWriter.CloseWithError(err)
 			conn.setup(nil, err)
@@ -108,6 +143,8 @@ func (c *Client) DialContext(ctx context.Context) (net.Conn, error) {
 }
 
 func (c *Client) Close() error {
-	v2rayhttp.ResetTransport(c.transport)
+	for _, transport := range c.transports {
+		v2rayhttp.ResetTransport(transport)
+	}
 	return nil
 }

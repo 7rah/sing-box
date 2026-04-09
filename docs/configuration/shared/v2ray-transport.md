@@ -159,7 +159,14 @@ It needs to be consistent with the server.
   "service_name": "TunService",
   "idle_timeout": "15s",
   "ping_timeout": "15s",
-  "permit_without_stream": false
+  "permit_without_stream": false,
+  "pool": {
+    "enabled": true,
+    "size": 4,
+    "pinned_destinations": [
+      "www.gstatic.com:443"
+    ]
+  }
 }
 ```
 
@@ -198,6 +205,22 @@ If disabled, when there are no active connections, `idle_timeout` and `ping_time
 pings will be sent.
 
 Disabled by default.
+
+#### pool
+
+Connection pool options for the default/lite gRPC client.
+
+#### pool.enabled
+
+Enable the lite client pool.
+
+#### pool.size
+
+Number of lite client transport slots.
+
+#### pool.pinned_destinations
+
+Destination `host:port` list that always uses slot `0`.
 
 ### HTTPUpgrade
 

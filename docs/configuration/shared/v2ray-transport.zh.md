@@ -152,7 +152,14 @@ HTTP 请求的额外标头
   "service_name": "TunService",
   "idle_timeout": "15s",
   "ping_timeout": "15s",
-  "permit_without_stream": false
+  "permit_without_stream": false,
+  "pool": {
+    "enabled": true,
+    "size": 4,
+    "pinned_destinations": [
+      "www.gstatic.com:443"
+    ]
+  }
 }
 ```
 
@@ -187,6 +194,22 @@ gRPC 服务名称。
 如果启用，客户端传输即使没有活动连接也会发送 keepalive ping。如果禁用，则在没有活动连接时，将忽略 `idle_timeout` 和 `ping_timeout`，并且不会发送 keepalive ping。
 
 默认禁用。
+
+#### pool
+
+默认/lite gRPC 客户端的连接池选项。
+
+#### pool.enabled
+
+启用 lite 客户端连接池。
+
+#### pool.size
+
+lite 客户端连接槽数量。
+
+#### pool.pinned_destinations
+
+固定走 `slot 0` 的目标 `host:port` 列表。
 
 ### HTTPUpgrade
 

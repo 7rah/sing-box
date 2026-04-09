@@ -86,11 +86,18 @@ type V2RayWebsocketOptions struct {
 type V2RayQUICOptions struct{}
 
 type V2RayGRPCOptions struct {
-	ServiceName         string             `json:"service_name,omitempty"`
-	IdleTimeout         badoption.Duration `json:"idle_timeout,omitempty"`
-	PingTimeout         badoption.Duration `json:"ping_timeout,omitempty"`
-	PermitWithoutStream bool               `json:"permit_without_stream,omitempty"`
-	ForceLite           bool               `json:"-"` // for test
+	ServiceName         string                `json:"service_name,omitempty"`
+	IdleTimeout         badoption.Duration    `json:"idle_timeout,omitempty"`
+	PingTimeout         badoption.Duration    `json:"ping_timeout,omitempty"`
+	PermitWithoutStream bool                  `json:"permit_without_stream,omitempty"`
+	Pool                *V2RayGRPCPoolOptions `json:"pool,omitempty"`
+	ForceLite           bool                  `json:"-"` // for test
+}
+
+type V2RayGRPCPoolOptions struct {
+	Enabled            bool                       `json:"enabled,omitempty"`
+	Size               int                        `json:"size,omitempty"`
+	PinnedDestinations badoption.Listable[string] `json:"pinned_destinations,omitempty"`
 }
 
 type V2RayHTTPUpgradeOptions struct {
