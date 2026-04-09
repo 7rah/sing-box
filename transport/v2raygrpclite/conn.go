@@ -2,6 +2,7 @@ package v2raygrpclite
 
 import (
 	std_bufio "bufio"
+	"context"
 	"encoding/binary"
 	"io"
 	"net"
@@ -28,6 +29,7 @@ type GunConn struct {
 	create        chan struct{}
 	err           error
 	readRemaining int
+	cancel        context.CancelFunc
 }
 
 func newGunConn(reader io.Reader, writer io.Writer, flusher http.Flusher) *GunConn {
@@ -46,13 +48,32 @@ func newLateGunConn(writer io.Writer) *GunConn {
 	}
 }
 
+func (c *GunConn) setCancel(cancel context.CancelFunc) {
+	c.cancel = cancel
+}
+
 func (c *GunConn) setup(reader io.Reader, err error) {
 	if reader != nil {
 		c.rawReader = reader
 		c.reader = std_bufio.NewReader(reader)
 	}
 	c.err = err
-	close(c.create)
+	if c.create != nil {
+		close(c.create)
+	}
+	if err != nil {
+		type closeWithError interface {
+			CloseWithError(error) error
+		}
+		if writer, ok := c.writer.(closeWithError); ok {
+			_ = writer.CloseWithError(err)
+		} else if writer, ok := c.writer.(io.Closer); ok {
+			_ = writer.Close()
+		}
+		if c.cancel != nil {
+			c.cancel()
+		}
+	}
 }
 
 func (c *GunConn) Read(b []byte) (n int, err error) {
@@ -141,6 +162,9 @@ func (c *GunConn) FrontHeadroom() int {
 }
 
 func (c *GunConn) Close() error {
+	if c.cancel != nil {
+		c.cancel()
+	}
 	return common.Close(c.rawReader, c.writer)
 }
 
