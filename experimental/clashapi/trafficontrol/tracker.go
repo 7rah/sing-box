@@ -2,6 +2,7 @@ package trafficontrol
 
 import (
 	"net"
+	"net/netip"
 	"sync/atomic"
 	"time"
 
@@ -108,6 +109,10 @@ func (tt *TCPConn) Close() error {
 
 func (tt *TCPConn) Upstream() any {
 	return tt.ExtendedConn
+}
+
+func (tt *TCPConn) UpdateDestination(destination netip.Addr) {
+	tt.metadata.Metadata.Destination.Addr = destination
 }
 
 func (tt *TCPConn) ReaderReplaceable() bool {

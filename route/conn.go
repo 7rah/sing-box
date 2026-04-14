@@ -125,6 +125,11 @@ func (m *ConnectionManager) NewConnection(ctx context.Context, this N.Dialer, co
 		m.logger.ErrorContext(ctx, err)
 		return
 	}
+	if remoteDestination := M.AddrFromNet(remoteConn.RemoteAddr()); remoteDestination.IsValid() && remoteDestination != metadata.Destination.Addr {
+		if connWithDestination, ok := conn.(interface{ UpdateDestination(netip.Addr) }); ok {
+			connWithDestination.UpdateDestination(remoteDestination)
+		}
+	}
 	if metadata.TLSFragment || metadata.TLSRecordFragment {
 		remoteConn = tf.NewConn(remoteConn, ctx, metadata.TLSFragment, metadata.TLSRecordFragment, metadata.TLSFragmentFallbackDelay)
 	}
