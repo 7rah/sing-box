@@ -222,7 +222,7 @@ func (c *Client) Exchange(ctx context.Context, transport adapter.DNSTransport, m
 			return nil, ErrResponseRejectedCached
 		}
 	}
-	response, err := c.exchangeToTransport(ctx, transport, message)
+	response, err := c.exchangeToTransport(ctx, transport, message, options.Timeout)
 	if err != nil {
 		return nil, err
 	}
@@ -497,10 +497,10 @@ func (c *Client) backgroundRefreshDNS(transport adapter.DNSTransport, question d
 	go func() {
 		defer c.backgroundRefresh.Delete(key)
 		ctx := contextWithTransportTag(c.ctx, transport.Tag())
-		response, err := c.exchangeToTransport(ctx, transport, message)
+		response, err := c.exchangeToTransport(ctx, transport, message, options.Timeout)
 		if err != nil {
 			if c.logger != nil {
-				c.logger.Debug("optimistic refresh failed for ", FqdnToDomain(question.Name), ": ", err)
+				c.logger.DebugContext(ctx, "optimistic refresh failed for ", FqdnToDomain(question.Name), ": ", err)
 			}
 			return
 		}
@@ -512,6 +512,9 @@ func (c *Client) backgroundRefreshDNS(transport adapter.DNSTransport, question d
 				rejected = !responseChecker(response)
 			}
 			if rejected {
+				if c.logger != nil {
+					c.logger.DebugContext(ctx, "optimistic refresh rejected for ", FqdnToDomain(question.Name))
+				}
 				if c.rdrc != nil {
 					c.rdrc.SaveRDRCAsync(transport.Tag(), question.Name, question.Qtype, c.logger)
 				}
@@ -522,6 +525,7 @@ func (c *Client) backgroundRefreshDNS(transport adapter.DNSTransport, question d
 		}
 		timeToLive := applyResponseOptions(question, response, options)
 		c.storeCache(transport, question, response, timeToLive)
+		logRefreshedResponse(c.logger, ctx, response, timeToLive)
 	}()
 }
 
@@ -536,11 +540,27 @@ func (c *Client) prepareExchangeMessage(message *dns.Msg, options adapter.DNSQue
 	return message
 }
 
-func (c *Client) exchangeToTransport(ctx context.Context, transport adapter.DNSTransport, message *dns.Msg) (*dns.Msg, error) {
-	ctx, cancel := context.WithTimeout(ctx, c.timeout)
+func stripDNSPadding(response *dns.Msg) {
+	for _, record := range response.Extra {
+		opt, isOpt := record.(*dns.OPT)
+		if !isOpt {
+			continue
+		}
+		opt.Option = common.Filter(opt.Option, func(it dns.EDNS0) bool {
+			return it.Option() != dns.EDNS0PADDING
+		})
+	}
+}
+
+func (c *Client) exchangeToTransport(ctx context.Context, transport adapter.DNSTransport, message *dns.Msg, timeout time.Duration) (*dns.Msg, error) {
+	if timeout == 0 {
+		timeout = c.timeout
+	}
+	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 	response, err := transport.Exchange(ctx, message)
 	if err == nil {
+		stripDNSPadding(response)
 		return response, nil
 	}
 	var rcodeError RcodeError

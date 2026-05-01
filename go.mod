@@ -5,7 +5,7 @@ go 1.24.7
 require (
 	github.com/anthropics/anthropic-sdk-go v1.26.0
 	github.com/anytls/sing-anytls v0.0.11
-	github.com/caddyserver/certmagic v0.25.2
+	github.com/caddyserver/certmagic v0.25.3-0.20260421143802-60d9d8b415d6
 	github.com/caddyserver/zerossl v0.1.5
 	github.com/coder/websocket v1.8.14
 	github.com/cretz/bine v0.2.0
@@ -33,18 +33,18 @@ require (
 	github.com/sagernet/cors v1.2.1
 	github.com/sagernet/cronet-go v0.0.0-20260413093659-e4926ba205fa
 	github.com/sagernet/cronet-go/all v0.0.0-20260413093659-e4926ba205fa
-	github.com/sagernet/fswatch v0.1.1
+	github.com/sagernet/fswatch v0.1.2
 	github.com/sagernet/gomobile v0.1.12
 	github.com/sagernet/gvisor v0.0.0-20250811.0-sing-box-mod.1
 	github.com/sagernet/quic-go v0.59.0-sing-box-mod.4
-	github.com/sagernet/sing v0.8.5-0.20260414061014-3597f84f897c
-	github.com/sagernet/sing-cloudflared v0.0.0-20260407120610-7715dc2523fa
+	github.com/sagernet/sing v0.8.10-0.20260428084616-2bc976d03e39
+	github.com/sagernet/sing-cloudflared v0.1.0
 	github.com/sagernet/sing-mux v0.3.4
-	github.com/sagernet/sing-quic v0.6.2-0.20260330152607-bf674c163212
+	github.com/sagernet/sing-quic v0.6.2-0.20260412143638-8f65b6be7cd6
 	github.com/sagernet/sing-shadowsocks v0.2.8
 	github.com/sagernet/sing-shadowsocks2 v0.2.1
 	github.com/sagernet/sing-shadowtls v0.2.1-0.20250503051639-fcd445d33c11
-	github.com/sagernet/sing-tun v0.8.8-0.20260410061515-018f5eaae695
+	github.com/sagernet/sing-tun v0.8.10-0.20260427231103-812b89ea042d
 	github.com/sagernet/sing-vmess v0.2.8-0.20250909125414-3aed155119a1
 	github.com/sagernet/smux v1.5.50-sing-box-mod.1
 	github.com/sagernet/tailscale v1.92.4-sing-box-1.13-mod.7
@@ -81,7 +81,7 @@ require (
 	github.com/dgrijalva/jwt-go/v4 v4.0.0-preview1 // indirect
 	github.com/ebitengine/purego v0.9.1 // indirect
 	github.com/florianl/go-nfqueue/v2 v2.0.2 // indirect
-	github.com/fsnotify/fsnotify v1.7.0 // indirect
+	github.com/fsnotify/fsnotify v1.9.0 // indirect
 	github.com/fxamacker/cbor/v2 v2.7.0 // indirect
 	github.com/gaissmai/bart v0.18.0 // indirect
 	github.com/go-jose/go-jose/v4 v4.1.3 // indirect
@@ -139,7 +139,7 @@ require (
 	github.com/sagernet/cronet-go/lib/windows_amd64 v0.0.0-20260413092954-cd09eb3e271b // indirect
 	github.com/sagernet/cronet-go/lib/windows_arm64 v0.0.0-20260413092954-cd09eb3e271b // indirect
 	github.com/sagernet/netlink v0.0.0-20240612041022-b9a21c07ac6a // indirect
-	github.com/sagernet/nftables v0.3.0-beta.4 // indirect
+	github.com/sagernet/nftables v0.3.0-mod.2 // indirect
 	github.com/spf13/pflag v1.0.9 // indirect
 	github.com/tailscale/certstore v0.1.1-0.20231202035212-d3fa0460f47e // indirect
 	github.com/tailscale/go-winio v0.0.0-20231025203758-c4f33415bf55 // indirect

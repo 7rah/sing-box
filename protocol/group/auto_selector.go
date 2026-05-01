@@ -30,10 +30,10 @@ func RegisterAutoSelector(registry *outbound.Registry) {
 var autoSelectorPlatformWatcherConstructor = newAutoSelectorPlatformWatcher
 
 var (
-	_ adapter.OutboundGroup             = (*AutoSelector)(nil)
-	_ adapter.SelectableOutboundGroup   = (*AutoSelector)(nil)
-	_ adapter.ConnectionHandlerEx       = (*AutoSelector)(nil)
-	_ adapter.PacketConnectionHandlerEx = (*AutoSelector)(nil)
+	_ adapter.OutboundGroup           = (*AutoSelector)(nil)
+	_ adapter.SelectableOutboundGroup = (*AutoSelector)(nil)
+	_ adapter.ConnectionHandler       = (*AutoSelector)(nil)
+	_ adapter.PacketConnectionHandler = (*AutoSelector)(nil)
 )
 
 type AutoSelector struct {
@@ -187,29 +187,29 @@ func (s *AutoSelector) ListenPacket(ctx context.Context, destination M.Socksaddr
 	return s.interruptGroup.NewPacketConn(conn, interrupt.IsExternalConnectionFromContext(ctx)), nil
 }
 
-func (s *AutoSelector) NewConnectionEx(ctx context.Context, conn net.Conn, metadata adapter.InboundContext, onClose N.CloseHandlerFunc) {
+func (s *AutoSelector) NewConnection(ctx context.Context, conn net.Conn, metadata adapter.InboundContext, onClose N.CloseHandlerFunc) {
 	selected := s.selectedOutbound()
 	if selected == nil {
 		common.Close(conn)
 		return
 	}
 	ctx = interrupt.ContextWithIsExternalConnection(ctx)
-	if outboundHandler, isHandler := selected.(adapter.ConnectionHandlerEx); isHandler {
-		outboundHandler.NewConnectionEx(ctx, conn, metadata, onClose)
+	if outboundHandler, isHandler := selected.(adapter.ConnectionHandler); isHandler {
+		outboundHandler.NewConnection(ctx, conn, metadata, onClose)
 	} else {
 		s.connection.NewConnection(ctx, selected, conn, metadata, onClose)
 	}
 }
 
-func (s *AutoSelector) NewPacketConnectionEx(ctx context.Context, conn N.PacketConn, metadata adapter.InboundContext, onClose N.CloseHandlerFunc) {
+func (s *AutoSelector) NewPacketConnection(ctx context.Context, conn N.PacketConn, metadata adapter.InboundContext, onClose N.CloseHandlerFunc) {
 	selected := s.selectedOutbound()
 	if selected == nil {
 		common.Close(conn)
 		return
 	}
 	ctx = interrupt.ContextWithIsExternalConnection(ctx)
-	if outboundHandler, isHandler := selected.(adapter.PacketConnectionHandlerEx); isHandler {
-		outboundHandler.NewPacketConnectionEx(ctx, conn, metadata, onClose)
+	if outboundHandler, isHandler := selected.(adapter.PacketConnectionHandler); isHandler {
+		outboundHandler.NewPacketConnection(ctx, conn, metadata, onClose)
 	} else {
 		s.connection.NewPacketConnection(ctx, selected, conn, metadata, onClose)
 	}

@@ -38,6 +38,7 @@ type DNSQueryOptions struct {
 	DisableCache           bool
 	DisableOptimisticCache bool
 	RewriteTTL             *uint32
+	Timeout                time.Duration
 	ClientSubnet           netip.Prefix
 }
 
@@ -56,6 +57,7 @@ func DNSQueryOptionsFrom(ctx context.Context, options *option.DomainResolveOptio
 		DisableCache:           options.DisableCache,
 		DisableOptimisticCache: options.DisableOptimisticCache,
 		RewriteTTL:             options.RewriteTTL,
+		Timeout:                time.Duration(options.Timeout),
 		ClientSubnet:           options.ClientSubnet.Build(netip.Prefix{}),
 	}, nil
 }
@@ -78,6 +80,8 @@ type DNSTransport interface {
 	Type() string
 	Tag() string
 	Dependencies() []string
+	// Reset closes the transport's existing connections so later requests use fresh connections.
+	// Exchanges that are currently using those connections may fail.
 	Reset()
 	Exchange(ctx context.Context, message *dns.Msg) (*dns.Msg, error)
 }

@@ -82,6 +82,7 @@ func NewNetworkManager(ctx context.Context, logger logger.ContextLogger, options
 			DomainResolver:    defaultDomainResolver.Server,
 			DomainResolveOptions: adapter.DNSQueryOptions{
 				Strategy:               C.DomainStrategy(defaultDomainResolver.Strategy),
+				Timeout:                time.Duration(defaultDomainResolver.Timeout),
 				DisableCache:           defaultDomainResolver.DisableCache,
 				DisableOptimisticCache: defaultDomainResolver.DisableOptimisticCache,
 				RewriteTTL:             defaultDomainResolver.RewriteTTL,
@@ -428,6 +429,7 @@ func (r *NetworkManager) WIFIState() adapter.WIFIState {
 }
 
 func (r *NetworkManager) onWIFIStateChanged(state adapter.WIFIState) {
+	state.BSSID = adapter.NormalizeWIFIBSSID(state.BSSID)
 	r.wifiStateMutex.Lock()
 	if state != r.wifiState {
 		r.wifiState = state

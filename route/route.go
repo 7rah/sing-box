@@ -74,7 +74,7 @@ func (r *Router) routeConnection(ctx context.Context, conn net.Conn, metadata ad
 		metadata.LastInbound = metadata.Inbound
 		metadata.Inbound = metadata.InboundDetour
 		metadata.InboundDetour = ""
-		injectable.NewConnectionEx(ctx, conn, metadata, onClose)
+		injectable.NewConnection(ctx, conn, metadata, onClose)
 		return nil
 	}
 	metadata.Network = N.NetworkTCP
@@ -152,8 +152,8 @@ func (r *Router) routeConnection(ctx context.Context, conn net.Conn, metadata ad
 	for _, tracker := range r.trackers {
 		conn = tracker.RoutedConnection(ctx, conn, metadata, selectedRule, selectedOutbound)
 	}
-	if outboundHandler, isHandler := selectedOutbound.(adapter.ConnectionHandlerEx); isHandler {
-		outboundHandler.NewConnectionEx(ctx, conn, metadata, onClose)
+	if outboundHandler, isHandler := selectedOutbound.(adapter.ConnectionHandler); isHandler {
+		outboundHandler.NewConnection(ctx, conn, metadata, onClose)
 	} else {
 		r.connection.NewConnection(ctx, selectedOutbound, conn, metadata, onClose)
 	}
@@ -209,7 +209,7 @@ func (r *Router) routePacketConnection(ctx context.Context, conn N.PacketConn, m
 		metadata.LastInbound = metadata.Inbound
 		metadata.Inbound = metadata.InboundDetour
 		metadata.InboundDetour = ""
-		injectable.NewPacketConnectionEx(ctx, conn, metadata, onClose)
+		injectable.NewPacketConnection(ctx, conn, metadata, onClose)
 		return nil
 	}
 	// TODO: move to UoT
@@ -281,8 +281,8 @@ func (r *Router) routePacketConnection(ctx context.Context, conn N.PacketConn, m
 	if metadata.FakeIP {
 		conn = bufio.NewNATPacketConn(bufio.NewNetPacketConn(conn), metadata.OriginDestination, metadata.Destination)
 	}
-	if outboundHandler, isHandler := selectedOutbound.(adapter.PacketConnectionHandlerEx); isHandler {
-		outboundHandler.NewPacketConnectionEx(ctx, conn, metadata, onClose)
+	if outboundHandler, isHandler := selectedOutbound.(adapter.PacketConnectionHandler); isHandler {
+		outboundHandler.NewPacketConnection(ctx, conn, metadata, onClose)
 	} else {
 		r.connection.NewPacketConnection(ctx, selectedOutbound, conn, metadata, onClose)
 	}
@@ -407,37 +407,7 @@ func (r *Router) matchRule(
 	selectedRule adapter.Rule, selectedRuleIndex int,
 	buffers []*buf.Buffer, packetBuffers []*N.PacketBuffer, fatalErr error,
 ) {
-	if r.processSearcher != nil && metadata.ProcessInfo == nil {
-		var originDestination netip.AddrPort
-		if metadata.OriginDestination.IsValid() {
-			originDestination = metadata.OriginDestination.AddrPort()
-		} else if metadata.Destination.IsIP() {
-			originDestination = metadata.Destination.AddrPort()
-		}
-		processInfo, fErr := r.findProcessInfoCached(ctx, metadata.Network, metadata.Source.AddrPort(), originDestination)
-		if fErr != nil {
-			r.logger.InfoContext(ctx, "failed to search process: ", fErr)
-		} else {
-			if processInfo.ProcessPath != "" {
-				if processInfo.UserName != "" {
-					r.logger.InfoContext(ctx, "found process path: ", processInfo.ProcessPath, ", user: ", processInfo.UserName)
-				} else if processInfo.UserId != -1 {
-					r.logger.InfoContext(ctx, "found process path: ", processInfo.ProcessPath, ", user id: ", processInfo.UserId)
-				} else {
-					r.logger.InfoContext(ctx, "found process path: ", processInfo.ProcessPath)
-				}
-			} else if len(processInfo.AndroidPackageNames) > 0 {
-				r.logger.InfoContext(ctx, "found package name: ", strings.Join(processInfo.AndroidPackageNames, ", "))
-			} else if processInfo.UserId != -1 {
-				if processInfo.UserName != "" {
-					r.logger.InfoContext(ctx, "found user: ", processInfo.UserName)
-				} else {
-					r.logger.InfoContext(ctx, "found user id: ", processInfo.UserId)
-				}
-			}
-			metadata.ProcessInfo = processInfo
-		}
-	}
+	r.searchProcessInfo(ctx, metadata)
 	if r.neighborResolver != nil && metadata.SourceMACAddress == nil && metadata.Source.Addr.IsValid() {
 		mac, macFound := r.neighborResolver.LookupMAC(metadata.Source.Addr)
 		if macFound {
@@ -821,6 +791,7 @@ func (r *Router) actionResolve(ctx context.Context, metadata *adapter.InboundCon
 			DisableCache:           action.DisableCache,
 			DisableOptimisticCache: action.DisableOptimisticCache,
 			RewriteTTL:             action.RewriteTTL,
+			Timeout:                action.Timeout,
 			ClientSubnet:           action.ClientSubnet,
 		})
 		if err != nil {
