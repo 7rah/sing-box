@@ -3,9 +3,16 @@ package option
 import "github.com/sagernet/sing/common/json/badoption"
 
 type SelectorOutboundOptions struct {
-	Outbounds                 []string `json:"outbounds"`
-	Default                   string   `json:"default,omitempty"`
-	InterruptExistConnections bool     `json:"interrupt_exist_connections,omitempty"`
+	Outbounds                 []string                   `json:"outbounds"`
+	Default                   string                     `json:"default,omitempty"`
+	LoadBalance               SelectorLoadBalanceOptions `json:"load_balance,omitempty"`
+	InterruptExistConnections bool                       `json:"interrupt_exist_connections,omitempty"`
+}
+
+type SelectorLoadBalanceOptions struct {
+	Enabled   bool   `json:"enabled,omitempty"`
+	Instances int    `json:"instances,omitempty"`
+	Strategy  string `json:"strategy,omitempty"`
 }
 
 type URLTestOutboundOptions struct {

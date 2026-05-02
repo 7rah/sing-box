@@ -11,6 +11,11 @@
     "proxy-c"
   ],
   "default": "proxy-c",
+  "load_balance": {
+    "enabled": false,
+    "instances": 3,
+    "strategy": "round_robin"
+  },
   "interrupt_exist_connections": false
 }
 ```
@@ -30,6 +35,12 @@ List of outbound tags to select.
 #### default
 
 The default outbound tag. The first outbound will be used if empty.
+
+#### load_balance
+
+Load balance connections over instances of the selected outbound.
+
+When enabled, `instances` controls the total number of instances for each selectable outbound, including the original outbound. Only the `round_robin` strategy is supported.
 
 #### interrupt_exist_connections
 

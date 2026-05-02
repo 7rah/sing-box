@@ -28,9 +28,15 @@ type Manager struct {
 	stage                   adapter.StartStage
 	outbounds               []adapter.Outbound
 	outboundByTag           map[string]adapter.Outbound
+	optionsByTag            map[string]outboundOptions
 	dependByTag             map[string][]string
 	defaultOutbound         adapter.Outbound
 	defaultOutboundFallback func() (adapter.Outbound, error)
+}
+
+type outboundOptions struct {
+	outboundType string
+	options      any
 }
 
 func NewManager(logger logger.ContextLogger, registry adapter.OutboundRegistry, endpoint adapter.EndpointManager, defaultTag string) *Manager {
@@ -40,6 +46,7 @@ func NewManager(logger logger.ContextLogger, registry adapter.OutboundRegistry, 
 		endpoint:      endpoint,
 		defaultTag:    defaultTag,
 		outboundByTag: make(map[string]adapter.Outbound),
+		optionsByTag:  make(map[string]outboundOptions),
 		dependByTag:   make(map[string][]string),
 	}
 }
@@ -222,6 +229,7 @@ func (m *Manager) Remove(tag string) error {
 		return os.ErrInvalid
 	}
 	delete(m.outboundByTag, tag)
+	delete(m.optionsByTag, tag)
 	index := common.Index(m.outbounds, func(it adapter.Outbound) bool {
 		return it == outbound
 	})
@@ -296,6 +304,10 @@ func (m *Manager) Create(ctx context.Context, router adapter.Router, logger log.
 	}
 	m.outbounds = append(m.outbounds, outbound)
 	m.outboundByTag[tag] = outbound
+	m.optionsByTag[tag] = outboundOptions{
+		outboundType: inboundType,
+		options:      options,
+	}
 	dependencies := outbound.Dependencies()
 	for _, dependency := range dependencies {
 		m.dependByTag[dependency] = append(m.dependByTag[dependency], tag)
@@ -307,4 +319,14 @@ func (m *Manager) Create(ctx context.Context, router adapter.Router, logger log.
 		}
 	}
 	return nil
+}
+
+func (m *Manager) CreateInstance(ctx context.Context, router adapter.Router, logger log.ContextLogger, tag string, sourceTag string) (adapter.Outbound, error) {
+	m.access.RLock()
+	options, loaded := m.optionsByTag[sourceTag]
+	m.access.RUnlock()
+	if !loaded {
+		return nil, E.New("outbound options not found: ", sourceTag)
+	}
+	return m.registry.CreateOutbound(ctx, router, logger, tag, options.outboundType, options.options)
 }

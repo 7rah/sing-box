@@ -11,6 +11,11 @@
     "proxy-c"
   ],
   "default": "proxy-c",
+  "load_balance": {
+    "enabled": false,
+    "instances": 3,
+    "strategy": "round_robin"
+  },
   "interrupt_exist_connections": false
 }
 ```
@@ -30,6 +35,12 @@
 #### default
 
 默认的出站标签。默认使用第一个出站。
+
+#### load_balance
+
+在选中的出站的多个实例之间负载均衡连接。
+
+启用后，`instances` 表示每个可选择出站的总实例数，包含原始出站。目前仅支持 `round_robin` 策略。
 
 #### interrupt_exist_connections
 
